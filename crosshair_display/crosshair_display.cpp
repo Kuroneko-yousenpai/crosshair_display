@@ -123,7 +123,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         POINT cursorPos;
         GetCursorPos(&cursorPos);
 
-        // Define the central draggable area (30x30 pixels)
+        // Define the central draggable area
         RECT centralRect = {
             imagePos.x + (imageSize.cx / 2) - 16,
             imagePos.y + (imageSize.cy / 2) - 10,
@@ -143,7 +143,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             POINT cursorPos;
             GetCursorPos(&cursorPos);
 
-            // Update position based on dragging
             imagePos.x = cursorPos.x - dragOffset.x;
             imagePos.y = cursorPos.y - dragOffset.y;
 
@@ -245,7 +244,6 @@ int APIENTRY WinMain(HINSTANCE hInstance_, HINSTANCE hPrevInstance, LPSTR lpCmdL
                 ToggleImageVisibility(hwndImage);
             }
             else if (msg.wParam == 2) { // Hotkey ID 2 (Ctrl + /)
-             // Toggle WS_EX_TRANSPARENT
                 LONG style = GetWindowLong(hwndImage, GWL_EXSTYLE);
                 bool transparent = style & WS_EX_TRANSPARENT;
                 SetWindowTransparent(hwndImage, !transparent);
