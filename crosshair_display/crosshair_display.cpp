@@ -242,6 +242,11 @@ int APIENTRY WinMain(HINSTANCE hInstance_, HINSTANCE hPrevInstance, LPSTR lpCmdL
         if (msg.message == WM_HOTKEY) {
             if (msg.wParam == 1) { // Hotkey ID 1 (Ctrl + Numpad Dot)
                 ToggleImageVisibility(hwndImage);
+                LONG style = GetWindowLong(hwndImage, GWL_EXSTYLE);
+                bool transparent = style & WS_EX_TRANSPARENT;
+                if (transparent) {
+                    SetWindowTransparent(hwndImage, !transparent);
+                }
             }
             else if (msg.wParam == 2) { // Hotkey ID 2 (Ctrl + /)
                 LONG style = GetWindowLong(hwndImage, GWL_EXSTYLE);
