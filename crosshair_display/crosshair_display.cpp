@@ -6,9 +6,14 @@
 
 #define DEBUG_MODE 0
 #define IDB_PNG1 129
+#define IDI_SMALL 108
+
+#define WM_TRAYICON (WM_USER + 1)
+#define ID_TRAY_EXIT 1001
 
 using namespace Gdiplus;
 
+NOTIFYICONDATA nid = {};
 HINSTANCE hInstance;
 ULONG_PTR gdiplusToken;
 HBITMAP hBitmap = nullptr;
@@ -18,6 +23,30 @@ bool isDragging = false;
 bool isVisible = false;
 POINT dragOffset = { 0, 0 };
 HWND hwndImage = nullptr;
+
+void AddTrayIcon(HWND hwnd) {
+    nid.cbSize = sizeof(NOTIFYICONDATA);
+    nid.hWnd = hwnd;
+    nid.uID = 1;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nid.uCallbackMessage = WM_TRAYICON;
+    nid.hIcon = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(IDI_SMALL), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    wcscpy_s(nid.szTip, L"Vacuum crosshair");
+
+    Shell_NotifyIcon(NIM_ADD, &nid);
+}
+
+void ShowContextMenu(HWND hwnd) {
+    POINT pt;
+    GetCursorPos(&pt);
+
+    HMENU hMenu = CreatePopupMenu();
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, L"Close");
+
+    SetForegroundWindow(hwnd);
+    TrackPopupMenu(hMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
+    DestroyMenu(hMenu);
+}
 
 HBITMAP LoadTransparentBitmapFromResource(int resourceId, HDC hdc, SIZE* size) {
     HRSRC hResource = FindResource(hInstance, MAKEINTRESOURCE(resourceId), L"PNG");
@@ -119,45 +148,56 @@ void SetWindowTransparent(HWND hwnd, bool transparent) {
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
-    case WM_LBUTTONDOWN: {
-        POINT cursorPos;
-        GetCursorPos(&cursorPos);
-
-        // Define the central draggable area
-        RECT centralRect = {
-            imagePos.x + (imageSize.cx / 2) - 16,
-            imagePos.y + (imageSize.cy / 2) - 10,
-            imagePos.x + (imageSize.cx / 2) + 20,
-            imagePos.y + (imageSize.cy / 2) + 25
-        };
-
-        if (PtInRect(&centralRect, cursorPos)) {
-            isDragging = true;
-            dragOffset.x = cursorPos.x - imagePos.x;
-            dragOffset.y = cursorPos.y - imagePos.y;
-        }
-        return 0;
-    }
-    case WM_MOUSEMOVE: {
-        if (isDragging) {
+        case WM_LBUTTONDOWN: {
             POINT cursorPos;
             GetCursorPos(&cursorPos);
 
-            imagePos.x = cursorPos.x - dragOffset.x;
-            imagePos.y = cursorPos.y - dragOffset.y;
+            // Define the central draggable area
+            RECT centralRect = {
+                imagePos.x + (imageSize.cx / 2) - 16,
+                imagePos.y + (imageSize.cy / 2) - 10,
+                imagePos.x + (imageSize.cx / 2) + 20,
+                imagePos.y + (imageSize.cy / 2) + 25
+            };
 
-            UpdateWindow(hwnd, hBitmap, imageSize, imagePos);
+            if (PtInRect(&centralRect, cursorPos)) {
+                isDragging = true;
+                dragOffset.x = cursorPos.x - imagePos.x;
+                dragOffset.y = cursorPos.y - imagePos.y;
+            }
+            return 0;
         }
-        return 0;
-    }
-    case WM_LBUTTONUP: {
-        isDragging = false;
-        return 0;
-    }
-    case WM_DESTROY: {
-        PostQuitMessage(0);
-        return 0;
-    }
+        case WM_MOUSEMOVE: {
+            if (isDragging) {
+                POINT cursorPos;
+                GetCursorPos(&cursorPos);
+
+                imagePos.x = cursorPos.x - dragOffset.x;
+                imagePos.y = cursorPos.y - dragOffset.y;
+
+                UpdateWindow(hwnd, hBitmap, imageSize, imagePos);
+            }
+            return 0;
+        }
+        case WM_LBUTTONUP: {
+            isDragging = false;
+            return 0;
+        }
+        case WM_DESTROY: {
+            PostQuitMessage(0);
+            return 0;
+        }
+        case WM_TRAYICON:
+            if (lParam == WM_RBUTTONDOWN) {
+                ShowContextMenu(hwnd);
+            }
+            break;
+        case WM_COMMAND:
+            if (LOWORD(wParam) == ID_TRAY_EXIT) {
+                Shell_NotifyIcon(NIM_DELETE, &nid);
+                PostQuitMessage(0);
+            }
+            break;
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
@@ -236,6 +276,8 @@ int APIENTRY WinMain(HINSTANCE hInstance_, HINSTANCE hPrevInstance, LPSTR lpCmdL
         MessageBox(nullptr, L"Failed to register hotkey", L"Error", MB_OK | MB_ICONERROR);
         return 0;
     }
+
+    AddTrayIcon(hwndImage);
 
     MSG msg = {};
     while (GetMessage(&msg, nullptr, 0, 0)) {
